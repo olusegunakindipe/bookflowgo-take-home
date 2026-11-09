@@ -94,4 +94,20 @@ describe('App: failure handling', () => {
     expect(await screen.findByText('No todos to show.')).toBeInTheDocument();
     expect(fetchMock).toHaveBeenCalledTimes(3);
   });
+
+  it('a field-level 400 on a toggle (no form to show it on) still shows a banner', async () => {
+    const user = userEvent.setup();
+    const todo = makeTodo({ title: 'Toggle me' });
+    mockFetch()
+      .mockResolvedValueOnce(json(200, [todo]))
+      .mockResolvedValueOnce(json(400, {
+        error: { code: 'VALIDATION_ERROR', message: 'Invalid request', details: [{ field: 'completed', message: 'Completed must be true or false' }] },
+      }));
+    render(<App />);
+
+    await user.click(await screen.findByRole('checkbox', { name: 'Mark "Toggle me" as complete' }));
+
+    expect(await screen.findByText(MESSAGES.unknown)).toBeInTheDocument();
+    expect(screen.getByRole('checkbox', { name: 'Mark "Toggle me" as complete' })).not.toBeChecked();
+  });
 });

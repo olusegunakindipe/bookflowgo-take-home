@@ -78,7 +78,7 @@ export function todosReducer(state: TodosState, action: TodosAction): TodosState
   }
 }
 
-const FALLBACK_MESSAGE = 'Something went wrong. Please try again.';
+const FALLBACK_MESSAGE = api.MESSAGES.unknown; // single source of user-facing copy
 
 /** Owns all list state. Changes are applied only after the server confirms them (no optimistic updates). */
 export function useTodos() {
@@ -100,28 +100,35 @@ export function useTodos() {
     };
   }, [state.includeCompleted, state.reloadKey]);
 
-  /** Field-level 400s go back to the form; every other failure shows the banner. A 404 also reloads. */
-  const fail = useCallback((err: unknown): MutationResult => {
-    if (err instanceof ApiError && err.kind === 'validation' && err.fieldErrors.length > 0) {
+  /**
+   * Field-level 400s go back to the form when there is one (create/edit); every other failure, and
+   * any failure of an action with no form (toggle/delete), shows the banner. A 404 also reloads.
+   */
+  const fail = useCallback((err: unknown, hasForm: boolean): MutationResult => {
+    if (hasForm && err instanceof ApiError && err.kind === 'validation' && err.fieldErrors.length > 0) {
       return { ok: false, fieldErrors: err.fieldErrors };
     }
-    dispatch({ type: 'action_error', message: err instanceof ApiError ? err.message : FALLBACK_MESSAGE });
+    const message = err instanceof ApiError && err.kind !== 'validation' ? err.message : FALLBACK_MESSAGE;
+    dispatch({ type: 'action_error', message });
     if (err instanceof ApiError && err.kind === 'not_found') dispatch({ type: 'reload' });
     return { ok: false, fieldErrors: [] };
   }, []);
 
-  const saved = useCallback(async (request: Promise<Todo>): Promise<MutationResult> => {
+  const saved = useCallback(async (request: Promise<Todo>, hasForm: boolean): Promise<MutationResult> => {
     try {
       dispatch({ type: 'upsert', todo: await request });
       return { ok: true };
     } catch (err) {
-      return fail(err);
+      return fail(err, hasForm);
     }
   }, [fail]);
 
-  const createTodo = useCallback((draft: TodoDraft) => saved(api.createTodo(draft)), [saved]);
-  const updateTodo = useCallback((id: string, draft: TodoDraft) => saved(api.updateTodo(id, draft)), [saved]);
-  const toggleTodo = useCallback((todo: Todo) => saved(api.updateTodo(todo.id, { completed: !todo.completed })), [saved]);
+  const createTodo = useCallback((draft: TodoDraft) => saved(api.createTodo(draft), true), [saved]);
+  const updateTodo = useCallback((id: string, draft: TodoDraft) => saved(api.updateTodo(id, draft), true), [saved]);
+  const toggleTodo = useCallback(
+    (todo: Todo) => saved(api.updateTodo(todo.id, { completed: !todo.completed }), false),
+    [saved],
+  );
 
   const deleteTodo = useCallback(async (id: string): Promise<MutationResult> => {
     try {
@@ -129,7 +136,7 @@ export function useTodos() {
       dispatch({ type: 'remove', id });
       return { ok: true };
     } catch (err) {
-      return fail(err);
+      return fail(err, false);
     }
   }, [fail]);
 

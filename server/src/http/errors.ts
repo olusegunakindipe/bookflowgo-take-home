@@ -30,7 +30,9 @@ export class NotFoundError extends AppError {
 
 export class InvalidJsonError extends AppError {
   constructor() {
-    super(400, 'INVALID_JSON', 'Request body is not valid JSON');
+    // Also used when the body is valid JSON but not an object/array (e.g. "text" or null),
+    // which Express's strict JSON parser rejects, so the message names the requirement.
+    super(400, 'INVALID_JSON', 'Request body must be a valid JSON object');
   }
 }
 

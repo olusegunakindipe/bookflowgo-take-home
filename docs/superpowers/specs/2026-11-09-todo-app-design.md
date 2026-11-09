@@ -106,7 +106,7 @@ An index `idx_todos_completed_ordinal ON todos(completed, ordinal)` matches the 
   - A transaction would only be needed for a multi-statement write, such as a future reorder.
 - Each statement is prepared once.
 - Rows are converted to the API's camelCase shape by an explicit mapper in the repository. Responses never contain raw DB rows.
-- **Middleware order:** `helmet()`, then the JSON content-type check, then `express.json({ limit: '10kb' })`, then the routes, then the 404 handler, then the error handler.
+- **Middleware order:** `helmet()`, then on `/api/todos` only: the JSON content-type check, then `express.json({ limit: '10kb' })`, then the routes. Then the 404 handler, then the error handler. Scoping the body checks means an unknown route is always a `404`.
 
 ### Web (`web/`): Vite, React, TypeScript, Tailwind v4
 

@@ -9,9 +9,8 @@ import { TodoService } from './todos/todo.service';
 export function createApp(repo: TodoRepository): Express {
   const app = express();
   app.use(helmet());
-  app.use(requireJsonBody);
-  app.use(express.json({ limit: '10kb' }));
-  app.use('/api/todos', todoRouter(new TodoService(repo)));
+  // Body checks are scoped to the todo routes, so an unknown route is always a 404.
+  app.use('/api/todos', requireJsonBody, express.json({ limit: '10kb' }), todoRouter(new TodoService(repo)));
   app.use(notFoundHandler);
   app.use(errorHandler);
   return app;

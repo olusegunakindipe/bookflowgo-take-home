@@ -135,6 +135,12 @@ describe('cross-cutting behaviour', () => {
     expect(res.body.error.code).toBe('NOT_FOUND');
   });
 
+  it('returns 404, not 415, for a non-JSON POST to an unknown route', async () => {
+    const res = await request(app).post('/api/nope').set('Content-Type', 'text/plain').send('x');
+    expect(res.status).toBe(404);
+    expect(res.body.error.code).toBe('NOT_FOUND');
+  });
+
   it('sends helmet security headers and hides X-Powered-By', async () => {
     const res = await request(app).get('/api/todos');
     expect(res.headers['x-content-type-options']).toBe('nosniff');

@@ -207,7 +207,7 @@ Tests use real collaborators wherever possible (`:memory:` SQLite rather than mo
 
 ## Time, status and next steps
 
-- **Time:** about 2.5 hours in total (20:15–22:40): brainstorming and the spec (about 40 minutes before the first commit), the plan, implementation with my review of every task, and the final independent review with its fix pass.
+- **Time:** about 2.5 hours in total. Most of it went on planning (brainstorming, the spec and the plan) and on reviewing, validating and verifying the work: reviewing every task before the next one, smoke tests against the running app, mutation checks, and the final independent review with its fix pass. Writing the code itself took the smaller share, because the plan already set out the design and the tests.
 - **Status:** every behaviour in the brief is implemented and tested. Nothing in scope is incomplete.
 - **Next steps if this were taken further:**
   - A shared schema package (so the client and server can't drift).

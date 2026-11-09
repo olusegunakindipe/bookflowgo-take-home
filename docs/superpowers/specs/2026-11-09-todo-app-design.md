@@ -122,7 +122,7 @@ src/
   App.tsx                composes the pieces; "Show completed" toggle
 ```
 
-- **Dev setup:** the Vite proxy forwards `/api` to `http://localhost:3001`, so requests are same-origin and the server needs no CORS configuration.
+- **Dev setup:** the Vite proxy forwards `/api` to `API_URL` (default `http://127.0.0.1:3001`, matching the server's `HOST`/`PORT` defaults), so requests are same-origin and the server needs no CORS configuration. `API_URL` has no `VITE_` prefix, so it never reaches the browser bundle. The proxy exists only in development; in production the web build and the API would be served from one origin behind a reverse proxy.
 - **How updates are applied:**
   - Each create, update or delete waits for the server's response and then applies the returned entity to local state. There are no optimistic updates.
   - If a request fails, the user's input is kept. A field-level `400` is shown inline on the matching input, and any other failure is shown in the banner.
@@ -262,3 +262,4 @@ The server is audited against the OWASP API Security Top 10, scaled to the brief
 - Developer questioned whether transactions are needed. Answer: no. better-sqlite3 is synchronous and single-process, so the read-then-insert could not interleave, and the `SELECT` wrote nothing that would need rolling back. `create` became a single `INSERT … SELECT` statement, so every write is now one atomic statement and there are no explicit transactions.
 - Task 4 review: the developer questioned needing two GET routes. `GET /api/todos/:id` was removed, because neither the brief nor the UI uses it, and the list already returns full todos. `TodoService.get`, `TodoRepository.findById` and the `201` `Location` header (which would point at a removed route) went with it. Every endpoint now maps to a target behaviour. `PATCH` and `DELETE` still return `404` for unknown or malformed ids.
 - Task 6 review: the developer asked for shorter error messages. All user-facing copy now lives in `MESSAGES` in `todosApi.ts`. The server's own error messages are never shown, because they are written for developers ("Content-Type must be application/json"). Statuses the UI has no specific handling for show a generic "Something went wrong. Please try again." A failed list load shows "Couldn't load your todos." with Retry, or the network message.
+- Task 6 review: the developer asked whether the proxy target should be hardcoded. It now defaults to `127.0.0.1:3001` and can be overridden with `API_URL`, so changing the server's `PORT` does not break the web app.

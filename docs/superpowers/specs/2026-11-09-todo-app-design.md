@@ -133,7 +133,7 @@ src/
   - Cards are equal height and long text wraps (`break-words`). A completed card has a struck-through, muted title.
   - Edit opens the form inline inside the card. Delete asks for confirmation with `window.confirm`.
   - Accessible labels, visible focus rings, and loading or disabled states on the buttons.
-  - Inputs carry a `maxLength`, and there is a character counter on the description.
+  - The title and description inputs have **no `maxLength`**, because it silently truncates pasted text and would make the over-length error unreachable. Instead, the description shows a live `n/2000` counter, and any over-length field gets an inline error on submit without sending a request.
   - **Consistency across browsers:**
     - Tailwind preflight normalises default styles.
     - The system font stack is used.
@@ -218,7 +218,7 @@ The server is audited against the OWASP API Security Top 10, scaled to the brief
   - A repository double that throws: the response is `500` with the generic body and no stack trace.
   - `helmet` security headers are present.
 
-**Web (Vitest + React Testing Library + jsdom; `fetch` mocked at the `todosApi` boundary):**
+**Web (Vitest + React Testing Library + jsdom; the global `fetch` is stubbed with `vi.stubGlobal`, so every flow test also exercises `todosApi`'s error mapping and timeout):**
 - **Unit tests:** `validateTodoForm`.
 - **User-flow tests:**
   - Creating a todo shows it in the list.
@@ -237,7 +237,7 @@ The server is audited against the OWASP API Security Top 10, scaled to the brief
 
 1. Spec (this file) is approved, then committed.
 2. The implementation plan in `docs/superpowers/plans/` is approved, then committed **before any feature code**. It serves as the AI-facing prompt.
-3. For each task, TDD: write a failing test, make it pass, then show the developer the diff and the test output. **Commit only after the developer approves.**
+3. For each task, TDD: write a failing test, make it pass, then commit to `main` and **stop**. The developer reviews the commit, and the next task starts only after their approval. Requested changes become separate follow-up commits, so the review is visible in history. History is never rewritten (no squash, amend or force-push).
 4. When the approach changes, the plan is updated in the same commit as the change.
 5. Final steps: full verification, then the README (setup, design, AI usage and corrections, what was verified, time spent, limitations).
 
@@ -256,3 +256,5 @@ The server is audited against the OWASP API Security Top 10, scaled to the brief
 - Developer asked for the todos to be shown as a 3-column grid that looks consistent across browsers, with light polish only because the backend is the priority (§4 UI).
 - Developer asked to keep only what is easy to explain. Removed: the explicit `x-powered-by` disable (`helmet` covers it), the SQLite WAL and other pragmas (no contention with one user), and custom process crash handlers (Node 20's default behaviour already covers this).
 - Developer reviewed the spec for anything outside the brief and chose to remove rate limiting (not needed for a single user on localhost). Kept: `helmet`, `GET /api/todos/:id`, the `(completed, ordinal)` index, graceful shutdown, the `Location` header and the description counter.
+- Plan review: removed `maxLength` from the inputs (a counter and inline error instead), and web tests stub `fetch` itself rather than mocking the API module. Both approved by the developer.
+- Workflow changed from approve-before-commit to commit-then-review on `main`. The brief asks for preserved history that shows corrections, and approve-before-commit would hide them. No feature branch is used, because the brief does not require one.

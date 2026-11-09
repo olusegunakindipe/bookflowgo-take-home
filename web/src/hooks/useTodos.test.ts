@@ -24,3 +24,22 @@ describe('todosReducer upsert', () => {
     expect(next.items.map((t) => [t.id, t.completed])).toEqual([['a', true], ['b', false]]);
   });
 });
+
+describe('todosReducer list loads vs. confirmed changes', () => {
+  it('does not let a list load that started before a change overwrite it; it reloads instead', () => {
+    let state = todosReducer({ ...initialState, items: [todo('a', 1)] }, { type: 'load_start' });
+    state = todosReducer(state, { type: 'upsert', todo: { ...todo('a', 1), title: 'edited' } }); // PATCH lands first
+    const next = todosReducer(state, { type: 'load_success', items: [todo('a', 1)] }); // older snapshot arrives
+
+    expect(next.items[0].title).toBe('edited');
+    expect(next.reloadKey).toBe(state.reloadKey + 1);
+  });
+
+  it('applies a list load normally when nothing changed while it was in flight', () => {
+    const state = todosReducer(initialState, { type: 'load_start' });
+    const next = todosReducer(state, { type: 'load_success', items: [todo('a', 1)] });
+    expect(next.items).toEqual([todo('a', 1)]);
+    expect(next.status).toBe('ready');
+    expect(next.reloadKey).toBe(state.reloadKey);
+  });
+});

@@ -17,6 +17,9 @@ export interface TodosState {
   loadError: string | null;
   actionError: string | null;
   reloadKey: number;
+  /** Confirmed changes so far, and how many there were when the current list load started. */
+  changeCount: number;
+  loadStartedAtChange: number;
 }
 
 export type TodosAction =
@@ -37,13 +40,17 @@ export const initialState: TodosState = {
   loadError: null,
   actionError: null,
   reloadKey: 0,
+  changeCount: 0,
+  loadStartedAtChange: 0,
 };
 
 export function todosReducer(state: TodosState, action: TodosAction): TodosState {
   switch (action.type) {
     case 'load_start':
-      return { ...state, status: 'loading', loadError: null };
+      return { ...state, status: 'loading', loadError: null, loadStartedAtChange: state.changeCount };
     case 'load_success':
+      // A change confirmed while this load was in flight is newer than the snapshot: keep it and reload.
+      if (state.changeCount !== state.loadStartedAtChange) return { ...state, reloadKey: state.reloadKey + 1 };
       return { ...state, status: 'ready', items: action.items };
     case 'load_failure':
       return { ...state, status: 'error', loadError: action.message };
@@ -55,10 +62,15 @@ export function todosReducer(state: TodosState, action: TodosAction): TodosState
       const others = state.items.filter((t) => t.id !== action.todo.id);
       const visible = state.includeCompleted || !action.todo.completed;
       const items = visible ? [...others, action.todo].sort((a, b) => a.ordinal - b.ordinal) : others;
-      return { ...state, items, actionError: null };
+      return { ...state, items, actionError: null, changeCount: state.changeCount + 1 };
     }
     case 'remove':
-      return { ...state, items: state.items.filter((t) => t.id !== action.id), actionError: null };
+      return {
+        ...state,
+        items: state.items.filter((t) => t.id !== action.id),
+        actionError: null,
+        changeCount: state.changeCount + 1,
+      };
     case 'action_error':
       return { ...state, actionError: action.message };
     case 'dismiss_error':

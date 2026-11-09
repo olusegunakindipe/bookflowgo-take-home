@@ -70,7 +70,7 @@ Other error codes: `INVALID_JSON` (400), `BAD_REQUEST` (400, a malformed request
 - One error middleware turns every failure into the error shape above.
 
 **Web:**
-- `todosApi.ts` is the only module that talks to the network. It has a 10 s timeout, and every failure becomes an `ApiError` with a `kind`.
+- `todosApi.ts` is the only module that talks to the network. A 10 s timeout covers the whole exchange (headers and body), and every failure, including a `2xx` with an unreadable body, becomes an `ApiError` with a `kind`.
 - `useTodos` (`useReducer`) owns all list state. It's used instead of `useState` because several fields change together after async calls, and the transitions are pure and unit-tested. There's no state library, because there's one list and one data source.
 - The components (`TodoForm` for both create and edit, `TodoItem`, `TodoList`, `ErrorBanner`) only render and raise events.
 - Validation rules live in a pure `validateTodoForm`.
@@ -101,7 +101,7 @@ Other error codes: `INVALID_JSON` (400), `BAD_REQUEST` (400, a malformed request
 | `id`, `ordinal` | **rejected** if sent | set by the server | `id` is a UUID v4 (`crypto.randomUUID`) |
 
 - Request bodies are strict: unknown keys get `400`, which prevents mass assignment.
-- The length limits are safety caps, not targets. The largest valid body (about 8.8 KB even if every character is a 4-byte emoji) fits under the 10 KB body cap.
+- The length limits are safety caps, not targets. Normal text fits well under the 10 KB body cap: the worst case is about 6.6 KB, when all 2200 characters are non-ASCII characters that each take 3 bytes (an emoji counts as 2 characters and takes 4 bytes, so it is cheaper per character). Only pathological input made mostly of control characters, which JSON escapes to 6 bytes each, could exceed the cap, and it gets `413`.
 - Both sides count characters with JS `.length`, so the client and the server always agree.
 - The form has no `maxLength`, because it silently truncates pasted text. Instead, the description shows a live `n/2000` counter and an inline error.
 
@@ -116,7 +116,7 @@ Other error codes: `INVALID_JSON` (400), `BAD_REQUEST` (400, a malformed request
   - No stack traces in responses.
   - React escaping, with no `dangerouslySetInnerHTML`.
   - Same-origin requests through the dev proxy, so no CORS.
-  - The UI never shows the server's developer-facing messages.
+  - Banners only ever show the client's own wording, never the server's developer-facing messages. The one exception is a server field-level validation message, which is shown inline next to the matching input.
 - **Deliberately not done:** auth, rate limiting, HTTPS, pagination. Each is the first thing to add if this were exposed or the lists grew.
 - **Performance:** profiled with React `<Profiler>` at 500 todos:
   - A keystroke takes 0.24 ms, because only the form re-renders.

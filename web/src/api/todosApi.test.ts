@@ -77,6 +77,13 @@ describe('todosApi', () => {
     await expect(listTodos(false)).rejects.toMatchObject({ kind: 'network', message: MESSAGES.network });
   });
 
+  it('maps a 2xx with an unreadable body to an ApiError (every failure is an ApiError)', async () => {
+    mockFetch().mockResolvedValueOnce(new Response('{not json', { status: 200 }));
+    const err = await listTodos(false).catch((e) => e);
+    expect(err).toBeInstanceOf(ApiError);
+    expect(err).toMatchObject({ kind: 'other', message: MESSAGES.unknown, status: 200 });
+  });
+
   it('maps a thrown fetch (server down) to a network error', async () => {
     mockFetch().mockRejectedValueOnce(new TypeError('Failed to fetch'));
     const err = await listTodos(false).catch((e) => e);

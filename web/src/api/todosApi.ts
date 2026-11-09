@@ -2,7 +2,8 @@ import { ApiError, type CreateTodoInput, type FieldError, type Todo, type Update
 
 export const REQUEST_TIMEOUT_MS = 10_000;
 
-// All user-facing error copy lives here. Server messages are written for developers and are never shown.
+// All user-facing banner copy lives here; server messages never appear in a banner. (A server
+// field-level validation message may be shown inline next to the matching form input.)
 export const MESSAGES = {
   network: "Can't reach the server. Please try again.",
   server: "Something went wrong. Your changes weren't saved.",
@@ -32,20 +33,32 @@ async function toApiError(response: Response): Promise<ApiError> {
   return new ApiError('other', MESSAGES.unknown, status);
 }
 
-/** The only place that talks to the network. Every failure becomes an ApiError. */
+/**
+ * The only place that talks to the network. Every failure becomes an ApiError, and the timeout
+ * covers the whole exchange (headers and body).
+ */
 async function request<T>(url: string, init: RequestInit = {}): Promise<T> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
-  let response: Response;
   try {
-    response = await fetch(url, { ...init, signal: controller.signal });
-  } catch {
-    throw new ApiError('network', MESSAGES.network); // server down, offline, or timed out
+    let response: Response;
+    try {
+      response = await fetch(url, { ...init, signal: controller.signal });
+    } catch {
+      throw new ApiError('network', MESSAGES.network); // server down, offline, or timed out
+    }
+    if (!response.ok) throw await toApiError(response);
+    if (response.status === 204) return undefined as T;
+    try {
+      return (await response.json()) as T;
+    } catch {
+      throw controller.signal.aborted
+        ? new ApiError('network', MESSAGES.network) // timed out while reading the body
+        : new ApiError('other', MESSAGES.unknown, response.status); // 2xx with an unreadable body
+    }
   } finally {
     clearTimeout(timer);
   }
-  if (!response.ok) throw await toApiError(response);
-  return (response.status === 204 ? undefined : await response.json()) as T;
 }
 
 const withJson = (method: string, body: unknown): RequestInit => ({

@@ -1,5 +1,5 @@
-import { beforeEach, describe, expect, it } from 'vitest';
-import { openDatabase } from '../db/database';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { openDatabase, type Db } from '../db/database';
 import { NotFoundError } from '../http/errors';
 import { createSqliteTodoRepository } from './todo.repository';
 import { TodoService, toUtcIso } from './todo.service';
@@ -13,11 +13,16 @@ describe('toUtcIso', () => {
   });
 });
 
+// Uses a real :memory: repository rather than a mock: the service's rules are checked through the
+// results a user would see. A test double is used only where a failure must be injected (API 500 test).
 describe('TodoService', () => {
+  let db: Db;
   let service: TodoService;
   beforeEach(() => {
-    service = new TodoService(createSqliteTodoRepository(openDatabase(':memory:')));
+    db = openDatabase(':memory:');
+    service = new TodoService(createSqliteTodoRepository(db));
   });
+  afterEach(() => db.close());
 
   it('applies defaults on create', () => {
     expect(service.create({ title: 'a' })).toMatchObject({ description: '', dueAt: null, completed: false, ordinal: 1 });

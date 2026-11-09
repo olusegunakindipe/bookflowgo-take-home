@@ -207,7 +207,7 @@ Tests use real collaborators wherever possible (`:memory:` SQLite rather than mo
 
 ## Time, status and next steps
 
-- **Time:** about 2.5 hours, from the first spec commit to the README, including planning and review.
+- **Time:** about 2.5 hours in total (20:15–22:40): brainstorming and the spec (about 40 minutes before the first commit), the plan, implementation with my review of every task, and the final independent review with its fix pass.
 - **Status:** every behaviour in the brief is implemented and tested. Nothing in scope is incomplete.
 - **Next steps if this were taken further:**
   - A shared schema package (so the client and server can't drift).

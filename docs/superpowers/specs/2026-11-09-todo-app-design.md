@@ -54,8 +54,7 @@ The base path is `/api`. Bodies are JSON.
 | Method and path | Request | Success | Failures |
 |---|---|---|---|
 | `GET /api/todos` | Optional query `includeCompleted`: exactly `true` or `false` (default `false`) | `200` `Todo[]`, sorted by `ordinal ASC` | `400` |
-| `GET /api/todos/:id` | – | `200` `Todo` | `404` |
-| `POST /api/todos` | `{ title, description?, dueAt? }` | `201` `Todo` plus a `Location` header | `400`, `413`, `415` |
+| `POST /api/todos` | `{ title, description?, dueAt? }` | `201` `Todo` | `400`, `413`, `415` |
 | `PATCH /api/todos/:id` | At least one of `{ title, description, dueAt, completed }`. `dueAt: null` clears the date. | `200` `Todo` | `400`, `404`, `413`, `415` |
 | `DELETE /api/todos/:id` | – | `204` | `404` |
 
@@ -155,7 +154,7 @@ src/
 | Single responsibility | Routes handle HTTP, the service holds the rules, the repository holds the SQL, and `errors.ts` maps failures. On the web side: `todosApi` does I/O, `useTodos` owns state, components render, and `validateTodoForm` holds the rules. |
 | Open/closed | New error types are new `AppError` subclasses; the error middleware does not change. |
 | Liskov substitution | The SQLite repository and any test double both satisfy `TodoRepository`. |
-| Interface segregation | `TodoRepository` exposes only `list`, `findById`, `create`, `update` and `delete`. Component props are minimal. |
+| Interface segregation | `TodoRepository` exposes only `list`, `create`, `update` and `delete`. Component props are minimal. |
 | Dependency inversion | The service depends on the `TodoRepository` interface. `createApp(repo)` takes its dependencies by constructor injection, with no DI framework. |
 | DRY, YAGNI, fail fast | One `TodoForm` and one error shape; nothing outside the brief; validate at the boundary and reject unknown keys. |
 
@@ -261,3 +260,4 @@ The server is audited against the OWASP API Security Top 10, scaled to the brief
 - Workflow changed from approve-before-commit to commit-then-review on `main`. The brief asks for preserved history that shows corrections, and approve-before-commit would hide them. No feature branch is used, because the brief does not require one.
 - `npm audit` during Task 1 flagged zod 3 (high severity, runtime) and vitest 3 (critical, dev-only). The developer chose to upgrade to zod 4.6.7 and vitest 4.1.12 before writing code. Validation rules are unchanged.
 - Developer questioned whether transactions are needed. Answer: no. better-sqlite3 is synchronous and single-process, so the read-then-insert could not interleave, and the `SELECT` wrote nothing that would need rolling back. `create` became a single `INSERT … SELECT` statement, so every write is now one atomic statement and there are no explicit transactions.
+- Task 4 review: the developer questioned needing two GET routes. `GET /api/todos/:id` was removed, because neither the brief nor the UI uses it, and the list already returns full todos. `TodoService.get`, `TodoRepository.findById` and the `201` `Location` header (which would point at a removed route) went with it. Every endpoint now maps to a target behaviour. `PATCH` and `DELETE` still return `404` for unknown or malformed ids.

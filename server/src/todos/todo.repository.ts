@@ -21,7 +21,6 @@ export type TodoChanges = Partial<Pick<Todo, 'title' | 'description' | 'dueAt' |
 /** Persistence port: the service depends on this, not on SQLite. */
 export interface TodoRepository {
   list(opts: { includeCompleted: boolean }): Todo[];
-  findById(id: string): Todo | undefined;
   create(input: NewTodo): Todo;
   update(id: string, changes: TodoChanges): Todo | undefined;
   delete(id: string): boolean;
@@ -51,7 +50,6 @@ function toTodo(row: TodoRow): Todo {
 export function createSqliteTodoRepository(db: Db): TodoRepository {
   const listOpen = db.prepare('SELECT * FROM todos WHERE completed = 0 ORDER BY ordinal');
   const listAll = db.prepare('SELECT * FROM todos ORDER BY ordinal');
-  const byId = db.prepare('SELECT * FROM todos WHERE id = ?');
   // Every write below is a single statement, which SQLite runs atomically, so no explicit
   // transactions are needed. The ordinal (max + 1) is computed inside the INSERT itself.
   const insert = db.prepare(`
@@ -71,10 +69,6 @@ export function createSqliteTodoRepository(db: Db): TodoRepository {
   return {
     list: ({ includeCompleted }) =>
       ((includeCompleted ? listAll : listOpen).all() as TodoRow[]).map(toTodo),
-    findById: (id) => {
-      const row = byId.get(id) as TodoRow | undefined;
-      return row && toTodo(row);
-    },
     create: (input) => toTodo(insert.get({ id: randomUUID(), ...input }) as TodoRow),
     update: (id, changes) => {
       const row = update.get({

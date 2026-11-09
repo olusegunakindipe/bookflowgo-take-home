@@ -41,7 +41,6 @@ describe('TodoService', () => {
   });
 
   it('throws NotFoundError for unknown ids', () => {
-    expect(() => service.get(MISSING)).toThrow(NotFoundError);
     expect(() => service.update(MISSING, { title: 'x' })).toThrow(NotFoundError);
     expect(() => service.delete(MISSING)).toThrow(NotFoundError);
   });

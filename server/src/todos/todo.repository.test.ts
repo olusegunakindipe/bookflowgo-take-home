@@ -55,7 +55,6 @@ describe('SqliteTodoRepository', () => {
 
   it('returns undefined / false for unknown ids', () => {
     const missing = '00000000-0000-4000-8000-000000000000';
-    expect(repo.findById(missing)).toBeUndefined();
     expect(repo.update(missing, { title: 'x' })).toBeUndefined();
     expect(repo.delete(missing)).toBe(false);
   });
@@ -63,6 +62,6 @@ describe('SqliteTodoRepository', () => {
   it('deletes an existing todo', () => {
     const t = repo.create(draft('a'));
     expect(repo.delete(t.id)).toBe(true);
-    expect(repo.findById(t.id)).toBeUndefined();
+    expect(repo.list({ includeCompleted: true })).toEqual([]);
   });
 });

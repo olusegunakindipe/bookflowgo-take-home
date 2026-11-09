@@ -25,13 +25,8 @@ export function todoRouter(service: TodoService): Router {
     res.json(service.list(includeCompleted));
   });
 
-  router.get('/:id', (req, res) => {
-    res.json(service.get(parseId(req.params.id)));
-  });
-
   router.post('/', (req, res) => {
-    const todo = service.create(parse(createTodoSchema, req.body));
-    res.status(201).location(`/api/todos/${todo.id}`).json(todo);
+    res.status(201).json(service.create(parse(createTodoSchema, req.body)));
   });
 
   router.patch('/:id', (req, res) => {

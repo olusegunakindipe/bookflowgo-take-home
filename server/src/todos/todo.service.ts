@@ -15,12 +15,6 @@ export class TodoService {
     return this.repo.list({ includeCompleted });
   }
 
-  get(id: string): Todo {
-    const todo = this.repo.findById(id);
-    if (!todo) throw new NotFoundError();
-    return todo;
-  }
-
   create(input: CreateTodoInput): Todo {
     return this.repo.create({
       title: input.title,

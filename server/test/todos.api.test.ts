@@ -20,11 +20,10 @@ afterEach(() => db.close());
 const create = (body: object) => request(app).post('/api/todos').send(body);
 
 describe('POST /api/todos', () => {
-  it('creates a todo with defaults, 201 and a Location header', async () => {
+  it('creates a todo with defaults and returns 201', async () => {
     const res = await create({ title: '  Buy milk ' });
     expect(res.status).toBe(201);
     expect(res.body).toEqual({ id: expect.stringMatching(UUID), title: 'Buy milk', description: '', dueAt: null, ordinal: 1, completed: false });
-    expect(res.headers.location).toBe(`/api/todos/${res.body.id}`);
   });
 
   it('normalises dueAt to UTC', async () => {
@@ -90,19 +89,6 @@ describe('GET /api/todos', () => {
   });
 });
 
-describe('GET /api/todos/:id', () => {
-  it('returns the todo', async () => {
-    const t = (await create({ title: 'a' })).body;
-    expect((await request(app).get(`/api/todos/${t.id}`)).body).toEqual(t);
-  });
-
-  it.each([MISSING, 'not-a-uuid'])('returns 404 for %s', async (id) => {
-    const res = await request(app).get(`/api/todos/${id}`);
-    expect(res.status).toBe(404);
-    expect(res.body.error.code).toBe('NOT_FOUND');
-  });
-});
-
 describe('PATCH /api/todos/:id', () => {
   it('edits fields and toggles completion both ways', async () => {
     const t = (await create({ title: 'a', dueAt: '2026-12-01T09:30:00Z' })).body;
@@ -122,17 +108,23 @@ describe('PATCH /api/todos/:id', () => {
     }
   });
 
-  it('returns 404 for an unknown id', async () => {
-    const res = await request(app).patch(`/api/todos/${MISSING}`).send({ title: 'x' });
+  it.each([MISSING, 'not-a-uuid'])('returns 404 NOT_FOUND for id %s', async (id) => {
+    const res = await request(app).patch(`/api/todos/${id}`).send({ title: 'x' });
     expect(res.status).toBe(404);
+    expect(res.body.error.code).toBe('NOT_FOUND');
   });
 });
 
 describe('DELETE /api/todos/:id', () => {
-  it('deletes and then 404s', async () => {
+  it('deletes, removes it from the list, and then 404s', async () => {
     const t = (await create({ title: 'a' })).body;
     expect((await request(app).delete(`/api/todos/${t.id}`)).status).toBe(204);
+    expect((await request(app).get('/api/todos?includeCompleted=true')).body).toEqual([]);
     expect((await request(app).delete(`/api/todos/${t.id}`)).status).toBe(404);
+  });
+
+  it('returns 404 for a malformed id', async () => {
+    expect((await request(app).delete('/api/todos/not-a-uuid')).status).toBe(404);
   });
 });
 
@@ -153,7 +145,7 @@ describe('cross-cutting behaviour', () => {
     const boom = () => {
       throw new Error('disk on fire');
     };
-    const failing: TodoRepository = { list: boom, findById: boom, create: boom, update: boom, delete: boom };
+    const failing: TodoRepository = { list: boom, create: boom, update: boom, delete: boom };
     const logged = vi.spyOn(console, 'error').mockImplementation(() => {});
 
     const res = await request(createApp(failing)).get('/api/todos');

@@ -2,6 +2,8 @@
 
 A single-user ToDo list. It has an **Express + SQLite API** in [`server/`](server) and a **React + Tailwind UI** in [`web/`](web), connected through the Vite dev proxy.
 
+**Scope:** both the backend and frontend tasks are completed, as requested, with the backend prioritised.
+
 - Design spec, including the decision log: [`docs/superpowers/specs/2026-11-09-todo-app-design.md`](docs/superpowers/specs/2026-11-09-todo-app-design.md)
 - Implementation plan (the AI-facing prompt), including plan revisions: [`docs/superpowers/plans/2026-11-09-todo-app.md`](docs/superpowers/plans/2026-11-09-todo-app.md)
 

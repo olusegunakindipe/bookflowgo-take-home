@@ -86,7 +86,7 @@ Other error codes: `INVALID_JSON` (400), `UNSUPPORTED_MEDIA_TYPE` (415), `PAYLOA
 - **Ordinal = `max(ordinal) + 1`**, computed inside the single `INSERT`. Every write is one atomic SQL statement, so there are no explicit transactions. Deletes leave gaps, which is harmless because only relative order matters. A future reorder would need a transaction with a two-step shift, because SQLite checks `UNIQUE(ordinal)` row by row; gaps (for example +100) would avoid that, but reordering isn't required.
 - **Dates:** the API accepts ISO 8601 **with an offset**, because a date without one is ambiguous, and stores and returns UTC. The UI sends `datetime-local` values as UTC and displays them in the browser's timezone.
 - **Completed todos** are filtered **in SQL** (an index on `(completed, ordinal)` supports it). When shown, they keep their position with a struck-through title. The toggle isn't persisted.
-- **No optimistic updates:** the UI applies a change only after the server confirms it, so it never shows a write that failed, and your input is kept on any failure.
+- **No optimistic updates:** the UI applies a change only after the server confirms it. A failed save is never shown as saved, and your typed input is kept. Other tabs are not live-synced; they catch up when they reload or touch a changed todo (see the multi-tab note under limitations).
 - **Validation is server-authoritative.** The web app mirrors the user-facing rules for instant feedback. The types and limits are duplicated by hand, and tests on both sides keep them aligned; a shared schema package would be the next step if the contract grew.
 - **Simplification:** the service throws `NotFoundError`, which lives in `http/errors.ts`, so the domain layer touches an HTTP-flavoured file. This keeps one simple error handler and avoids a separate mapping layer.
 
@@ -121,7 +121,8 @@ Other error codes: `INVALID_JSON` (400), `UNSUPPORTED_MEDIA_TYPE` (415), `PAYLOA
 - **Performance:** profiled with React `<Profiler>` at 500 todos:
   - A keystroke takes 0.24 ms, because only the form re-renders.
   - Toggling one todo took 54.8 ms. After memoising `TodoItem` it takes 1.8 ms.
-- **Storage:** SQLite file at `server/data/todos.db` (git-ignored). Data survives restarts; tests use `:memory:`. It's single-process, and edits from multiple tabs are **last write wins**.
+- **Storage:** SQLite file at `server/data/todos.db` (git-ignored). Data survives restarts; tests use `:memory:`. It's single-process.
+- **Multiple tabs:** tabs are not live-synced. Editing the same todo in two tabs is **last write wins**. Editing or deleting a todo that another tab already deleted gets a `404`. That tab then shows "This todo no longer exists. The list has been refreshed." and reloads, so a deleted todo is never recreated.
 - **Browser support:** Chrome 111+, Firefox 128+, Safari 16.4+ (Tailwind v4). The `datetime-local` picker popup looks different in each browser.
 - **Development only:** the proxy exists only in `npm run dev`. In production the web build and the API would be served from one origin behind a reverse proxy. If that proxy can't reach the API, the UI shows "Can't reach the server".
 
@@ -151,10 +152,12 @@ Tests use real collaborators wherever possible (`:memory:` SQLite rather than mo
   - With the API down, the response is classified as "can't reach".
 - The date round-trip test passes under `TZ=America/Los_Angeles`, `Asia/Kolkata` and `Pacific/Chatham`.
 - **Mutation checks:** each failure-flow behaviour was broken deliberately (no reload after `404`, form cleared on failure, proxy `500` treated as a server error, field errors dropped, load failure showing the list, banner not dismissable). Each break was caught by its test.
-- The developer used the UI in Chrome on the dev servers (adding and deleting todos).
+- **Developer's manual check in Safari** on the dev servers:
+  - Added, edited and deleted todos.
+  - Opened a second tab, deleted a todo in one tab and then edited it in the other. The second tab showed "This todo no longer exists. The list has been refreshed." and the card disappeared. The same case via `curl`: `DELETE` gives `204`, then `PATCH` gives `404`, and the todo is not recreated.
 
 **Planned but not run:**
-- A side-by-side visual check in Firefox and Safari.
+- A visual check in Firefox and Chrome.
 - Accessibility auditing beyond labels, roles and focus rings, for example with a screen reader.
 
 ## AI usage
@@ -201,4 +204,5 @@ Tests use real collaborators wherever possible (`:memory:` SQLite rather than mo
   - Reordering (a two-step shift in a transaction, or gaps).
   - Optimistic concurrency, for example with `updatedAt`.
   - Rate limiting and auth before exposing it beyond localhost.
-  - Cross-browser visual checks.
+  - Visual checks in Firefox and Chrome.
+  - Live sync between tabs (for example by refetching when a tab regains focus).

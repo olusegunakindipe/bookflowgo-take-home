@@ -1,0 +1,78 @@
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { ApiError } from './types';
+import { MESSAGES, REQUEST_TIMEOUT_MS, createTodo, deleteTodo, listTodos } from './todosApi';
+
+const json = (status: number, body: unknown) =>
+  new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
+
+function mockFetch() {
+  const fn = vi.fn<typeof fetch>();
+  vi.stubGlobal('fetch', fn);
+  return fn;
+}
+
+afterEach(() => vi.useRealTimers());
+
+describe('todosApi', () => {
+  it('lists with the includeCompleted query', async () => {
+    const fetchMock = mockFetch();
+    fetchMock.mockResolvedValueOnce(json(200, []));
+    await listTodos(true);
+    expect(fetchMock).toHaveBeenCalledWith('/api/todos?includeCompleted=true', expect.any(Object));
+  });
+
+  it('sends JSON on create', async () => {
+    const fetchMock = mockFetch();
+    fetchMock.mockResolvedValueOnce(json(201, { id: '1' }));
+    await createTodo({ title: 'a', description: '', dueAt: null });
+    expect(fetchMock).toHaveBeenCalledWith('/api/todos', expect.objectContaining({
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title: 'a', description: '', dueAt: null }),
+    }));
+  });
+
+  it('handles 204 on delete', async () => {
+    mockFetch().mockResolvedValueOnce(new Response(null, { status: 204 }));
+    await expect(deleteTodo('1')).resolves.toBeUndefined();
+  });
+
+  it('maps a 400 VALIDATION_ERROR to field errors', async () => {
+    const details = [{ field: 'title', message: 'Title is required' }];
+    mockFetch().mockResolvedValueOnce(json(400, { error: { code: 'VALIDATION_ERROR', message: 'Invalid request', details } }));
+    await expect(createTodo({ title: '' })).rejects.toMatchObject({ kind: 'validation', fieldErrors: details });
+  });
+
+  it.each([
+    [404, 'not_found', MESSAGES.notFound],
+    [500, 'server', MESSAGES.server],
+    [503, 'server', MESSAGES.server],
+  ])('maps HTTP %i to kind %s', async (status, kind, message) => {
+    mockFetch().mockResolvedValueOnce(json(status, { error: { code: 'X', message: 'x' } }));
+    await expect(listTodos(false)).rejects.toMatchObject({ kind, message, status });
+  });
+
+  it('maps a 5xx with a non-JSON body to a server error', async () => {
+    mockFetch().mockResolvedValueOnce(new Response('<html>Bad Gateway</html>', { status: 502 }));
+    await expect(listTodos(false)).rejects.toMatchObject({ kind: 'server' });
+  });
+
+  it('maps a thrown fetch (server down) to a network error', async () => {
+    mockFetch().mockRejectedValueOnce(new TypeError('Failed to fetch'));
+    const err = await listTodos(false).catch((e) => e);
+    expect(err).toBeInstanceOf(ApiError);
+    expect(err).toMatchObject({ kind: 'network', message: MESSAGES.network });
+  });
+
+  it('aborts after the timeout and reports a network error', async () => {
+    vi.useFakeTimers();
+    mockFetch().mockImplementationOnce((_url, init) =>
+      new Promise((_resolve, reject) => {
+        init!.signal!.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError')));
+      }),
+    );
+    const assertion = expect(listTodos(false)).rejects.toMatchObject({ kind: 'network' });
+    await vi.advanceTimersByTimeAsync(REQUEST_TIMEOUT_MS);
+    await assertion;
+  });
+});

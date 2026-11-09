@@ -95,6 +95,26 @@ describe('App: target behaviours', () => {
     expect(await screen.findByRole('heading', { name: 'New title' })).toBeInTheDocument();
   });
 
+  it('editing only the title keeps the stored due date exactly (no rounding to the minute)', async () => {
+    const user = userEvent.setup();
+    const fetchMock = mockFetch();
+    const todo = makeTodo({ title: 'Precise', dueAt: '2026-12-01T16:00:30.500Z' });
+    fetchMock
+      .mockResolvedValueOnce(json(200, [todo]))
+      .mockResolvedValueOnce(json(200, { ...todo, title: 'Precise, renamed' }));
+    render(<App />);
+
+    await user.click(await screen.findByRole('button', { name: 'Edit "Precise"' }));
+    const card = within(screen.getByRole('listitem'));
+    await user.type(card.getByLabelText('Title'), ', renamed');
+    await user.click(card.getByRole('button', { name: 'Save' }));
+
+    await screen.findByRole('heading', { name: 'Precise, renamed' });
+    expect(fetchMock).toHaveBeenLastCalledWith(`/api/todos/${todo.id}`, expect.objectContaining({
+      body: JSON.stringify({ title: 'Precise, renamed', description: '', dueAt: '2026-12-01T16:00:30.500Z' }),
+    }));
+  });
+
   it('deletes after confirmation, and does nothing when cancelled', async () => {
     const user = userEvent.setup();
     const fetchMock = mockFetch();

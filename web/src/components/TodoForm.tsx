@@ -41,11 +41,14 @@ export function TodoForm({ initial, submitLabel, onSubmit, onCancel }: TodoFormP
     setErrors(found);
     if (Object.keys(found).length > 0) return;
 
+    // datetime-local has minute precision; if the user did not touch the date, keep the stored value
+    // exactly rather than silently rounding seconds away.
+    const dueAtUnchanged = initial !== undefined && values.dueAt === toLocalInput(initial.dueAt);
     setSubmitting(true);
     const result = await onSubmit({
       title: values.title.trim(),
       description: values.description.trim(),
-      dueAt: toUtcIso(values.dueAt),
+      dueAt: dueAtUnchanged ? initial.dueAt : toUtcIso(values.dueAt),
     });
     setSubmitting(false);
     if (result.ok) {

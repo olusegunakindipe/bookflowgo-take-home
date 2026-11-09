@@ -48,6 +48,12 @@ export class PayloadTooLargeError extends AppError {
   }
 }
 
+export class BadRequestError extends AppError {
+  constructor() {
+    super(400, 'BAD_REQUEST', 'Malformed request');
+  }
+}
+
 export class InternalError extends AppError {
   constructor() {
     super(500, 'INTERNAL_ERROR', 'Something went wrong');

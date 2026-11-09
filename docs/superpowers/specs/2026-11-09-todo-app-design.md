@@ -73,7 +73,8 @@ The base path is `/api`. Bodies are JSON.
 |---|---|---|
 | Field rule failed, unknown key, empty PATCH, or bad query | 400 | `VALIDATION_ERROR` |
 | Malformed JSON | 400 | `INVALID_JSON` |
-| POST or PATCH without `application/json` | 415 | `UNSUPPORTED_MEDIA_TYPE` |
+| POST or PATCH without `application/json`, or with an unsupported charset or `Content-Encoding` | 415 | `UNSUPPORTED_MEDIA_TYPE` |
+| Any other malformed request (for example, a corrupt gzip body or a broken `%` escape in the URL) | 400 | `BAD_REQUEST` |
 | Body larger than 10 KB | 413 | `PAYLOAD_TOO_LARGE` |
 | Unknown id, non-UUID id, or unknown route | 404 | `NOT_FOUND` |
 | Unexpected error | 500 | `INTERNAL_ERROR` (generic message; details logged on the server only) |

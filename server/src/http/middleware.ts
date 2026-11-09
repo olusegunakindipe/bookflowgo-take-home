@@ -1,6 +1,7 @@
 import type { ErrorRequestHandler, RequestHandler } from 'express';
 import {
   AppError,
+  BadRequestError,
   InternalError,
   InvalidJsonError,
   NotFoundError,
@@ -23,12 +24,18 @@ export const notFoundHandler: RequestHandler = (_req, _res, next) => {
   next(new NotFoundError('Route not found'));
 };
 
-/** Converts body-parser failures to AppErrors; anything unknown becomes a generic 500. */
+/**
+ * Converts framework errors to AppErrors. Body-parser and the router flag client mistakes with a
+ * 4xx `status` (bad charset or encoding, malformed URL escape); those are the client's fault and
+ * must never become a 500. Anything else unknown is a generic 500.
+ */
 function toAppError(err: unknown): AppError {
   if (err instanceof AppError) return err;
-  const type = (err as { type?: unknown } | null)?.type;
+  const { type, status } = (err ?? {}) as { type?: unknown; status?: unknown };
   if (type === 'entity.parse.failed') return new InvalidJsonError();
   if (type === 'entity.too.large') return new PayloadTooLargeError();
+  if (status === 415) return new UnsupportedMediaTypeError();
+  if (typeof status === 'number' && status >= 400 && status < 500) return new BadRequestError();
   return new InternalError();
 }
 

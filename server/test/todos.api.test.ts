@@ -157,3 +157,27 @@ describe('cross-cutting behaviour', () => {
     logged.mockRestore();
   });
 });
+
+describe('malformed client requests get 4xx, never 500', () => {
+  it.each([
+    ['an unsupported charset', 'application/json; charset=latin1', undefined, 415, 'UNSUPPORTED_MEDIA_TYPE'],
+    ['an unsupported Content-Encoding', 'application/json', 'foo', 415, 'UNSUPPORTED_MEDIA_TYPE'],
+    ['a body that is not valid gzip', 'application/json', 'gzip', 400, 'BAD_REQUEST'],
+  ])('POST with %s', async (_case, type, encoding, status, code) => {
+    const logged = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const req = request(app).post('/api/todos').set('Content-Type', type);
+    if (encoding) req.set('Content-Encoding', encoding);
+    const res = await req.send('{"title":"x"}');
+    expect(res.status).toBe(status);
+    expect(res.body.error.code).toBe(code);
+    expect(logged).not.toHaveBeenCalled();
+  });
+
+  it.each(['/api/todos/%', '/api/todos/%E0%A4%A'])('DELETE %s (malformed URL escape) gives 400', async (path) => {
+    const logged = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const res = await request(app).delete(path);
+    expect(res.status).toBe(400);
+    expect(res.body).toEqual({ error: { code: 'BAD_REQUEST', message: 'Malformed request' } });
+    expect(logged).not.toHaveBeenCalled();
+  });
+});

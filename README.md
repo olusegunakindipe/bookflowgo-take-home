@@ -58,7 +58,7 @@ curl -X POST localhost:3001/api/todos -H 'Content-Type: application/json' -d '{"
 #   {"field":"id","message":"Unknown field"}]}}
 ```
 
-Other error codes: `INVALID_JSON` (400), `UNSUPPORTED_MEDIA_TYPE` (415), `PAYLOAD_TOO_LARGE` (413, body over 10 KB), `NOT_FOUND` (404, also returned for ids that are not UUIDs), and `INTERNAL_ERROR` (500, with a generic message; details are logged on the server only).
+Other error codes: `INVALID_JSON` (400), `BAD_REQUEST` (400, a malformed request such as a broken `%` escape in the URL or a corrupt body encoding), `UNSUPPORTED_MEDIA_TYPE` (415, also returned for an unsupported charset or encoding), `PAYLOAD_TOO_LARGE` (413, body over 10 KB), `NOT_FOUND` (404, also returned for ids that are not UUIDs), and `INTERNAL_ERROR` (500, with a generic message; details are logged on the server only).
 
 ## Design
 

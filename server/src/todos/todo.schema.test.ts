@@ -31,7 +31,9 @@ describe('createTodoSchema', () => {
 
   it('rejects dueAt without an offset, garbage, or an impossible date', () => {
     for (const dueAt of ['2026-12-01T09:30:00', 'tomorrow', '2026-02-30T10:00:00Z', 12345]) {
-      expect(fieldsOf(createTodoSchema.safeParse({ title: 't', dueAt }))[0].field).toBe('dueAt');
+      expect(fieldsOf(createTodoSchema.safeParse({ title: 't', dueAt }))).toEqual([
+        { field: 'dueAt', message: 'Due date must be ISO 8601 with a timezone' },
+      ]);
     }
   });
 

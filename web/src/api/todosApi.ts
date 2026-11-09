@@ -2,16 +2,17 @@ import { ApiError, type CreateTodoInput, type FieldError, type Todo, type Update
 
 export const REQUEST_TIMEOUT_MS = 10_000;
 
+// All user-facing error copy lives here. Server messages are written for developers and are never shown.
 export const MESSAGES = {
-  network: "Can't reach the server. Check it's running and try again.",
-  server: "Something went wrong on the server. Your changes weren't saved. Please try again.",
-  notFound: 'This todo no longer exists.',
+  network: "Can't reach the server. Please try again.",
+  server: "Something went wrong. Your changes weren't saved.",
+  notFound: 'This todo no longer exists. The list has been refreshed.',
   validation: 'Please fix the highlighted fields.',
-  unknown: 'The request could not be completed. Please try again.',
+  unknown: 'Something went wrong. Please try again.',
 } as const;
 
 interface ErrorBody {
-  error?: { code?: string; message?: string; details?: FieldError[] };
+  error?: { code?: string; details?: FieldError[] };
 }
 
 async function toApiError(response: Response): Promise<ApiError> {
@@ -22,7 +23,7 @@ async function toApiError(response: Response): Promise<ApiError> {
   }
   if (status === 404) return new ApiError('not_found', MESSAGES.notFound, status);
   if (status >= 500) return new ApiError('server', MESSAGES.server, status);
-  return new ApiError('other', body?.error?.message ?? MESSAGES.unknown, status);
+  return new ApiError('other', MESSAGES.unknown, status);
 }
 
 /** The only place that talks to the network. Every failure becomes an ApiError. */

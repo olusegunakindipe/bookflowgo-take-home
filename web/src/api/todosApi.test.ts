@@ -52,6 +52,21 @@ describe('todosApi', () => {
     await expect(listTodos(false)).rejects.toMatchObject({ kind, message, status });
   });
 
+  it('never shows developer-facing server messages for other statuses', async () => {
+    mockFetch().mockResolvedValueOnce(json(413, { error: { code: 'PAYLOAD_TOO_LARGE', message: 'Request body must be at most 10 KB' } }));
+    await expect(createTodo({ title: 'a' })).rejects.toMatchObject({ kind: 'other', message: MESSAGES.unknown, status: 413 });
+  });
+
+  it('uses short, user-facing copy', () => {
+    expect(MESSAGES).toEqual({
+      network: "Can't reach the server. Please try again.",
+      server: "Something went wrong. Your changes weren't saved.",
+      notFound: 'This todo no longer exists. The list has been refreshed.',
+      validation: 'Please fix the highlighted fields.',
+      unknown: 'Something went wrong. Please try again.',
+    });
+  });
+
   it('maps a 5xx with a non-JSON body to a server error', async () => {
     mockFetch().mockResolvedValueOnce(new Response('<html>Bad Gateway</html>', { status: 502 }));
     await expect(listTodos(false)).rejects.toMatchObject({ kind: 'server' });

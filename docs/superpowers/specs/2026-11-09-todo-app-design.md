@@ -197,11 +197,11 @@ The server is audited against the OWASP API Security Top 10, scaled to the brief
 - **Graceful shutdown:** on SIGINT or SIGTERM, `server.close()` stops new connections and then `db.close()` runs.
 
 **Web:**
-- **`5xx` on a write:** show the banner *"Something went wrong on the server. Your changes weren't saved. Please try again."* The form keeps the user's input and the list is unchanged, because there are no optimistic updates.
-- **Network failure:** when `fetch` throws, show the separate banner *"Can't reach the server. Check it's running and try again."*
+- **`5xx` on a write:** show the banner *"Something went wrong. Your changes weren't saved."* The form keeps the user's input and the list is unchanged, because there are no optimistic updates.
+- **Network failure:** when `fetch` throws, show the separate banner *"Can't reach the server. Please try again."*
 - **Timeout:** every request is aborted after 10 s with `AbortController`, and the abort is treated as a network failure, so buttons never stay disabled forever.
 - **Initial load failure:** the list area shows an error with a **Retry** button, not an empty list.
-- **`404` on update or delete:** show *"This todo no longer exists"* and reload the list, which brings the UI back in line after a delete in another tab.
+- **`404` on update or delete:** show *"This todo no longer exists. The list has been refreshed."* and reload the list, which brings the UI back in line after a delete in another tab.
 - **No automatic retries:** retrying is manual only, because `POST` is not idempotent and a blind retry could create duplicates.
 
 ## 6. Testing and verification
@@ -261,3 +261,4 @@ The server is audited against the OWASP API Security Top 10, scaled to the brief
 - `npm audit` during Task 1 flagged zod 3 (high severity, runtime) and vitest 3 (critical, dev-only). The developer chose to upgrade to zod 4.6.7 and vitest 4.1.12 before writing code. Validation rules are unchanged.
 - Developer questioned whether transactions are needed. Answer: no. better-sqlite3 is synchronous and single-process, so the read-then-insert could not interleave, and the `SELECT` wrote nothing that would need rolling back. `create` became a single `INSERT … SELECT` statement, so every write is now one atomic statement and there are no explicit transactions.
 - Task 4 review: the developer questioned needing two GET routes. `GET /api/todos/:id` was removed, because neither the brief nor the UI uses it, and the list already returns full todos. `TodoService.get`, `TodoRepository.findById` and the `201` `Location` header (which would point at a removed route) went with it. Every endpoint now maps to a target behaviour. `PATCH` and `DELETE` still return `404` for unknown or malformed ids.
+- Task 6 review: the developer asked for shorter error messages. All user-facing copy now lives in `MESSAGES` in `todosApi.ts`. The server's own error messages are never shown, because they are written for developers ("Content-Type must be application/json"). Statuses the UI has no specific handling for show a generic "Something went wrong. Please try again." A failed list load shows "Couldn't load your todos." with Retry, or the network message.

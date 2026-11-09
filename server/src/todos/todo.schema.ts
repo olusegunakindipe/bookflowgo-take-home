@@ -17,8 +17,16 @@ const description = z
 
 // z.iso.datetime validates real calendar days (rejects 2026-02-30) and, with offset: true,
 // requires "Z" or "±hh:mm", because a date-time without an offset is ambiguous.
+// The stored UTC form must itself be valid ISO 8601 (4-digit year), or the API would return a value
+// it rejects: e.g. 9999-12-31T23:59:59-14:00 is +010000-01-01T13:59:59Z in UTC.
 const dueAt = z.iso
   .datetime({ offset: true, error: 'Due date must be ISO 8601 with a timezone' })
+  // Zod runs refinements even after the format check fails, so an unparseable value is skipped here
+  // (the format error above already reports it) rather than letting toISOString() throw.
+  .refine((value) => {
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) || /^\d{4}-/.test(date.toISOString());
+  }, 'Due date is out of range')
   .nullable();
 
 export const createTodoSchema = z.strictObject({

@@ -96,7 +96,7 @@ Other error codes: `INVALID_JSON` (400), `BAD_REQUEST` (400, a malformed request
 |---|---|---|---|
 | `title` | **yes** | – | Trimmed, 1–200 characters. Whitespace only counts as empty, also on PATCH. |
 | `description` | no | `""` | Trimmed, at most 2000 characters |
-| `dueAt` | no | `null` | ISO 8601 with `Z` or `±hh:mm`; real calendar dates only (`2026-02-30` is rejected). **Past dates are allowed**, so you can record an overdue item. |
+| `dueAt` | no | `null` | ISO 8601 with `Z` or `±hh:mm`; real calendar dates only (`2026-02-30` is rejected); the UTC result must stay within years 0000–9999. **Past dates are allowed**, so you can record an overdue item. |
 | `completed` | not accepted on create | `false` | Boolean, changed with PATCH |
 | `id`, `ordinal` | **rejected** if sent | set by the server | `id` is a UUID v4 (`crypto.randomUUID`) |
 

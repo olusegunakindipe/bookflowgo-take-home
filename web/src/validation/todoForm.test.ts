@@ -22,6 +22,11 @@ describe('validateTodoForm', () => {
   it('rejects an unparseable due date', () => {
     expect(validateTodoForm({ ...valid, dueAt: 'not-a-date' }).dueAt).toBe('Enter a valid due date');
   });
+
+  it('rejects a due date whose UTC form leaves years 0000-9999, matching the server', () => {
+    expect(validateTodoForm({ ...valid, dueAt: '9999-06-01T12:00' })).toEqual({});
+    expect(validateTodoForm({ ...valid, dueAt: '+010000-01-01T00:00' }).dueAt).toBe('Due date is out of range');
+  });
 });
 
 describe('date conversion', () => {

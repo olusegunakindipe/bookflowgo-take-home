@@ -37,6 +37,15 @@ describe('createTodoSchema', () => {
     }
   });
 
+  it('rejects a dueAt whose UTC form leaves years 0000-9999 (it could not be sent back)', () => {
+    expect(createTodoSchema.safeParse({ title: 't', dueAt: '9999-12-31T09:59:59-14:00' }).success).toBe(true);
+    for (const dueAt of ['9999-12-31T23:59:59-14:00', '0000-01-01T00:00:00+01:00']) {
+      expect(fieldsOf(createTodoSchema.safeParse({ title: 't', dueAt }))).toEqual([
+        { field: 'dueAt', message: 'Due date is out of range' },
+      ]);
+    }
+  });
+
   it('rejects unknown keys, including server-owned fields', () => {
     expect(fieldsOf(createTodoSchema.safeParse({ title: 't', ordinal: 1, id: 'x' })))
       .toEqual([{ field: 'ordinal', message: 'Unknown field' }, { field: 'id', message: 'Unknown field' }]);

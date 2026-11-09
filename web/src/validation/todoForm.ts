@@ -22,8 +22,11 @@ export function validateTodoForm(values: TodoFormValues): TodoFormErrors {
   if (values.description.trim().length > DESCRIPTION_MAX) {
     errors.description = `Description must be at most ${DESCRIPTION_MAX} characters`;
   }
-  if (values.dueAt && Number.isNaN(new Date(values.dueAt).getTime())) {
-    errors.dueAt = 'Enter a valid due date';
+  if (values.dueAt) {
+    const due = new Date(values.dueAt);
+    if (Number.isNaN(due.getTime())) errors.dueAt = 'Enter a valid due date';
+    // Same rule as the server: the UTC form must have a 4-digit year.
+    else if (!/^\d{4}-/.test(due.toISOString())) errors.dueAt = 'Due date is out of range';
   }
   return errors;
 }

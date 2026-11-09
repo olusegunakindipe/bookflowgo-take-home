@@ -130,17 +130,17 @@ Other error codes: `INVALID_JSON` (400), `BAD_REQUEST` (400, a malformed request
 
 | Suite | Count | Scope |
 |---|---|---|
-| `server` unit | 29 | Zod schemas (limits, trimming, offsets, impossible dates, unknown keys, empty PATCH, repeated query params), service rules, repository against `:memory:` (max + 1 after delete, filtering, partial update), config |
-| `server` API | 21 | Supertest through `createApp` with a `:memory:` DB: every endpoint, every error code, non-object JSON bodies, `helmet` headers, and a generic `500` with no leaked internals (via a repository that throws) |
-| `web` unit | 24 | API client error mapping (including the proxy's plain-text `500` and the timeout), form validation, date round-trip, reducer rules, memoised re-render |
-| `web` UI flows | 13 | React Testing Library through the real hook and API client, with only `fetch` stubbed: every target behaviour, inline validation, the stale-response race, and the failure flows (`500`, network, proxy `500`, server `400`, load + Retry, `404`) |
+| `server` unit | 30 | Zod schemas (limits, trimming, offsets, impossible dates, unknown keys, empty PATCH, repeated query params), service rules, repository against `:memory:` (max + 1 after delete, filtering, partial update), config |
+| `server` API | 27 | Supertest through `createApp` with a `:memory:` DB: every endpoint, every error code, non-object JSON bodies, malformed requests (bad charset, encoding or URL escape give `4xx`, never `500`), `helmet` headers, and a generic `500` with no leaked internals (via a repository that throws) |
+| `web` unit | 28 | API client error mapping (including the proxy's plain-text `500` and the timeout), form validation, date round-trip, reducer rules, memoised re-render |
+| `web` UI flows | 15 | React Testing Library through the real hook and API client, with only `fetch` stubbed: every target behaviour, inline validation, the stale-response race, and the failure flows (`500`, network, proxy `500`, server `400`, load + Retry, `404`) |
 
 Tests use real collaborators wherever possible (`:memory:` SQLite rather than mocks). A test double is used only to inject failures.
 
 ## Verification
 
 **Checks I ran, with results:**
-- `npm test`: **server 50/50, web 37/37**. Both typechecks (source and tests) and both production builds are clean. `npm audit` reports **0 vulnerabilities** in both packages.
+- `npm test`: **server 57/57, web 43/43**. Both typechecks (source and tests) and both production builds are clean. `npm audit` reports **0 vulnerabilities** in both packages.
 - Built-server smoke test with `curl`:
   - create, list, edit, complete, uncomplete and delete all work;
   - `400`, `404` and `415` bodies are as documented;
@@ -155,6 +155,8 @@ Tests use real collaborators wherever possible (`:memory:` SQLite rather than mo
 - **Developer's manual check in Safari** on the dev servers:
   - Added, edited and deleted todos.
   - Opened a second tab, deleted a todo in one tab and then edited it in the other. The second tab showed "This todo no longer exists. The list has been refreshed." and the card disappeared. The same case via `curl`: `DELETE` gives `204`, then `PATCH` gives `404`, and the todo is not recreated.
+
+- **Independent final review:** a fresh AI reviewer read the whole codebase against the spec, the plan and this README, and ran around 50 edge-case requests. It reported 0 Critical, 1 Important and 9 Minor findings. All were fixed test-first (each test failed first), in separate `(review feedback)` commits, and the full verification above was re-run afterwards.
 
 **Planned but not run:**
 - A visual check in Firefox and Chrome.
@@ -189,6 +191,15 @@ Tests use real collaborators wherever possible (`:memory:` SQLite rather than mo
   - Shortened the UI error copy and stopped showing server messages to users.
   - **Made the proxy target configurable.** Checking it found a real bug: with the API down, the proxy's plain-text `500` showed "not saved" instead of "can't reach". The mocked tests couldn't have caught it, and it's now fixed.
   - Asked for a performance check, which led to profiling and `React.memo`.
+- **Final independent review:** I chose to fix all 10 findings rather than defer the minor ones:
+  - malformed requests returning `500`;
+  - out-of-range due dates;
+  - unknown-route `415`;
+  - due-date rounding on edit;
+  - a load-vs-edit race;
+  - silent toggle validation failures;
+  - an unreadable `2xx` body;
+  - documentation claims.
 - **Found by the AI while verifying**, and fixed with my approval:
   - Test files weren't being type-checked.
   - The `INVALID_JSON` message was misleading for valid-but-non-object JSON.

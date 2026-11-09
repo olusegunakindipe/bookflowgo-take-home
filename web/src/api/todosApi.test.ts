@@ -67,9 +67,14 @@ describe('todosApi', () => {
     });
   });
 
-  it('maps a 5xx with a non-JSON body to a server error', async () => {
-    mockFetch().mockResolvedValueOnce(new Response('<html>Bad Gateway</html>', { status: 502 }));
-    await expect(listTodos(false)).rejects.toMatchObject({ kind: 'server' });
+  // Our API always sends 5xx errors in its JSON format. A 5xx without it came from a proxy that
+  // could not reach the API (Vite dev proxy: plain-text 500; reverse proxies: 502/503/504).
+  it.each([
+    ['Vite dev proxy', new Response('', { status: 500, headers: { 'Content-Type': 'text/plain' } })],
+    ['reverse proxy', new Response('<html>Bad Gateway</html>', { status: 502, headers: { 'Content-Type': 'text/html' } })],
+  ])('maps a 5xx without our error format (%s) to a network error', async (_source, response) => {
+    mockFetch().mockResolvedValueOnce(response);
+    await expect(listTodos(false)).rejects.toMatchObject({ kind: 'network', message: MESSAGES.network });
   });
 
   it('maps a thrown fetch (server down) to a network error', async () => {

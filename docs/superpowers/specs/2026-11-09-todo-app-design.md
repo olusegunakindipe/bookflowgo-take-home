@@ -198,7 +198,7 @@ The server is audited against the OWASP API Security Top 10, scaled to the brief
 
 **Web:**
 - **`5xx` on a write:** show the banner *"Something went wrong. Your changes weren't saved."* The form keeps the user's input and the list is unchanged, because there are no optimistic updates.
-- **Network failure:** when `fetch` throws, show the separate banner *"Can't reach the server. Please try again."*
+- **Network failure:** when `fetch` throws, **or a `5xx` arrives without the API's JSON error format** (a proxy answered because the API was unreachable: the Vite dev proxy sends a plain-text `500`, reverse proxies send `502`/`503`/`504`), show the separate banner *"Can't reach the server. Please try again."*
 - **Timeout:** every request is aborted after 10 s with `AbortController`, and the abort is treated as a network failure, so buttons never stay disabled forever.
 - **Initial load failure:** the list area shows an error with a **Retry** button, not an empty list.
 - **`404` on update or delete:** show *"This todo no longer exists. The list has been refreshed."* and reload the list, which brings the UI back in line after a delete in another tab.
@@ -263,3 +263,4 @@ The server is audited against the OWASP API Security Top 10, scaled to the brief
 - Task 4 review: the developer questioned needing two GET routes. `GET /api/todos/:id` was removed, because neither the brief nor the UI uses it, and the list already returns full todos. `TodoService.get`, `TodoRepository.findById` and the `201` `Location` header (which would point at a removed route) went with it. Every endpoint now maps to a target behaviour. `PATCH` and `DELETE` still return `404` for unknown or malformed ids.
 - Task 6 review: the developer asked for shorter error messages. All user-facing copy now lives in `MESSAGES` in `todosApi.ts`. The server's own error messages are never shown, because they are written for developers ("Content-Type must be application/json"). Statuses the UI has no specific handling for show a generic "Something went wrong. Please try again." A failed list load shows "Couldn't load your todos." with Retry, or the network message.
 - Task 6 review: the developer asked whether the proxy target should be hardcoded. It now defaults to `127.0.0.1:3001` and can be overridden with `API_URL`, so changing the server's `PORT` does not break the web app.
+- Task 6 review (found while verifying the proxy): with the API stopped, the Vite proxy returns a plain-text `500`, so users saw the server-error message instead of "Can't reach the server". A `5xx` without the API's `{ error: { code } }` format is now classified as `network`. This was verified against the real proxy with the API down and up.

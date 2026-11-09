@@ -22,7 +22,13 @@ async function toApiError(response: Response): Promise<ApiError> {
     return new ApiError('validation', MESSAGES.validation, status, body.error.details ?? []);
   }
   if (status === 404) return new ApiError('not_found', MESSAGES.notFound, status);
-  if (status >= 500) return new ApiError('server', MESSAGES.server, status);
+  if (status >= 500) {
+    // Our API always sends 5xx errors in its JSON format; without it, a proxy (Vite in dev,
+    // a reverse proxy in production) answered because the API itself could not be reached.
+    return body?.error?.code
+      ? new ApiError('server', MESSAGES.server, status)
+      : new ApiError('network', MESSAGES.network, status);
+  }
   return new ApiError('other', MESSAGES.unknown, status);
 }
 

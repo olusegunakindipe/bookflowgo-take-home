@@ -30,13 +30,13 @@ Success means all of the following:
 | `title` | string | **Required on create** | – | Trimmed. 1–200 characters after trimming. Whitespace only counts as empty. |
 | `description` | string | Optional | `""` | Trimmed. At most 2000 characters. An empty string means none (never `null`). |
 | `dueAt` | ISO 8601 string or `null` | Optional | `null` | Must be a valid date-time **with an offset** (`Z` or `±hh:mm`). Normalised to UTC with `toISOString()`. Past dates are allowed. |
-| `ordinal` | integer | No | `max(ordinal) + 1`, or `1` for the first item | Assigned by the server inside a transaction. `UNIQUE` in the DB. |
+| `ordinal` | integer | No | `max(ordinal) + 1`, or `1` for the first item | Assigned by the server inside the `INSERT` statement itself (a single atomic statement). `UNIQUE` in the DB. |
 | `completed` | boolean | Optional on update | `false` | – |
 
 ### Decisions
 
 - **Length limits:** the limits are safety caps against abuse or accidents, not targets for typical input. A limit that is too low rejects real input (such as a pasted URL), while a limit that is too high costs almost nothing. The cap is 200 for the title and 2000 for the description. The largest valid body (about 8.8 KB even if every character is a 4-byte emoji) stays under the 10 KB body cap. Both sides count UTF-16 code units (JS `.length`, Zod `.max()`, HTML `maxLength`), so the client and server always agree.
-- **Ordinal:** new items are appended at the end with max + 1. Deletes leave gaps, which is harmless because only relative order matters. There are no gaps reserved for inserts, because the brief does not require reordering (YAGNI). A future reorder would shift neighbouring items in a single transaction.
+- **Ordinal:** new items are appended at the end with max + 1. Deletes leave gaps, which is harmless because only relative order matters. There are no gaps reserved for inserts, because the brief does not require reordering (YAGNI). A future reorder would need a transaction with a two-step shift, because SQLite checks `UNIQUE(ordinal)` row by row during an `UPDATE`. Gaps would avoid the shift.
 - **Date and time:**
   - The server stores and returns UTC only.
   - The web app uses `<input type="datetime-local">`, converts the local value to an ISO string in UTC before sending, and shows dates in the browser's local timezone.
@@ -100,9 +100,10 @@ Table: `todos(id TEXT PK, title TEXT NOT NULL, description TEXT NOT NULL DEFAULT
 
 An index `idx_todos_completed_ordinal ON todos(completed, ordinal)` matches the default list query (`WHERE completed = 0 ORDER BY ordinal`).
 
-- **Transactions, used only where they are needed:**
-  - `create` reads `max(ordinal)` and then inserts, so both steps run inside a `db.transaction` and happen together.
-  - `update` is a single `UPDATE … RETURNING` statement, and `delete` is a single `DELETE` whose `changes` count of 0 means `404`. Each single statement is already atomic, so wrapping it in a transaction would add nothing.
+- **No explicit transactions, because every write is one atomic statement:**
+  - `create` is `INSERT … VALUES (…, (SELECT COALESCE(MAX(ordinal), 0) + 1 FROM todos)) RETURNING *`, so reading the max and inserting cannot be separated.
+  - `update` is a single `UPDATE … RETURNING`, and `delete` is a single `DELETE` whose `changes` count of 0 means `404`.
+  - A transaction would only be needed for a multi-statement write, such as a future reorder.
 - Each statement is prepared once.
 - Rows are converted to the API's camelCase shape by an explicit mapper in the repository. Responses never contain raw DB rows.
 - **Middleware order:** `helmet()`, then the JSON content-type check, then `express.json({ limit: '10kb' })`, then the routes, then the 404 handler, then the error handler.
@@ -191,7 +192,7 @@ The server is audited against the OWASP API Security Top 10, scaled to the brief
 
 **Server:**
 - **Unexpected error in a route or service:** the catch-all middleware logs the full error and stack on the server only, and returns `500 INTERNAL_ERROR` with a generic message. The process keeps serving.
-- **DB error partway through a write:** every write is atomic. `create` runs in a transaction, and `update` and `delete` are single statements. A failure therefore rolls back fully, so no partial row or duplicate ordinal is left behind.
+- **DB error partway through a write:** every write is a single statement, which SQLite runs atomically. A failure therefore rolls back fully, so no partial row or duplicate ordinal is left behind.
 - **DB open or migration failure at startup:** fail fast. Log the error and exit with a non-zero code instead of serving in a half-working state.
 - **Crash-level errors:** there are no custom process handlers. Express 5 already sends rejected async handlers to the error middleware, and Node 20's default for any other unhandled rejection or exception is to log it and exit. In production a process manager would restart the process (documented).
 - **Graceful shutdown:** on SIGINT or SIGTERM, `server.close()` stops new connections and then `db.close()` runs.
@@ -259,3 +260,4 @@ The server is audited against the OWASP API Security Top 10, scaled to the brief
 - Plan review: removed `maxLength` from the inputs (a counter and inline error instead), and web tests stub `fetch` itself rather than mocking the API module. Both approved by the developer.
 - Workflow changed from approve-before-commit to commit-then-review on `main`. The brief asks for preserved history that shows corrections, and approve-before-commit would hide them. No feature branch is used, because the brief does not require one.
 - `npm audit` during Task 1 flagged zod 3 (high severity, runtime) and vitest 3 (critical, dev-only). The developer chose to upgrade to zod 4.6.7 and vitest 4.1.12 before writing code. Validation rules are unchanged.
+- Developer questioned whether transactions are needed. Answer: no. better-sqlite3 is synchronous and single-process, so the read-then-insert could not interleave, and the `SELECT` wrote nothing that would need rolling back. `create` became a single `INSERT … SELECT` statement, so every write is now one atomic statement and there are no explicit transactions.

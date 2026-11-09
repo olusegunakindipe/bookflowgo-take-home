@@ -52,10 +52,11 @@ export function createSqliteTodoRepository(db: Db): TodoRepository {
   const listOpen = db.prepare('SELECT * FROM todos WHERE completed = 0 ORDER BY ordinal');
   const listAll = db.prepare('SELECT * FROM todos ORDER BY ordinal');
   const byId = db.prepare('SELECT * FROM todos WHERE id = ?');
-  const nextOrdinal = db.prepare('SELECT COALESCE(MAX(ordinal), 0) + 1 AS next FROM todos');
+  // Every write below is a single statement, which SQLite runs atomically, so no explicit
+  // transactions are needed. The ordinal (max + 1) is computed inside the INSERT itself.
   const insert = db.prepare(`
     INSERT INTO todos (id, title, description, due_at, ordinal, completed)
-    VALUES (@id, @title, @description, @dueAt, @ordinal, 0)
+    VALUES (@id, @title, @description, @dueAt, (SELECT COALESCE(MAX(ordinal), 0) + 1 FROM todos), 0)
     RETURNING *`);
   const update = db.prepare(`
     UPDATE todos SET
@@ -67,12 +68,6 @@ export function createSqliteTodoRepository(db: Db): TodoRepository {
     RETURNING *`);
   const remove = db.prepare('DELETE FROM todos WHERE id = ?');
 
-  // Read-then-write must be atomic, so the ordinal read and the insert share one transaction.
-  const createTx = db.transaction((input: NewTodo): TodoRow => {
-    const { next } = nextOrdinal.get() as { next: number };
-    return insert.get({ id: randomUUID(), ...input, ordinal: next }) as TodoRow;
-  });
-
   return {
     list: ({ includeCompleted }) =>
       ((includeCompleted ? listAll : listOpen).all() as TodoRow[]).map(toTodo),
@@ -80,8 +75,7 @@ export function createSqliteTodoRepository(db: Db): TodoRepository {
       const row = byId.get(id) as TodoRow | undefined;
       return row && toTodo(row);
     },
-    create: (input) => toTodo(createTx(input)),
-    // A single UPDATE ... RETURNING is already atomic, so no transaction is needed.
+    create: (input) => toTodo(insert.get({ id: randomUUID(), ...input }) as TodoRow),
     update: (id, changes) => {
       const row = update.get({
         id,
